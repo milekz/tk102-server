@@ -47,6 +47,15 @@ After the tracker has disappeared, a file called **exit** is created in the dire
 
 Protocol partly from [this google doc](https://docs.google.com/spreadsheet/ccc?key=0AtQofkYKWsMudDVHTi1ZNjI4emxlTVlhc3V1RWpsc0E#gid=0)
 
+
+Dcoker ENV
+PG_DBNAME=aa 
+PG_USER=bb 
+PG_PASS=dd 
+PG_HOST=127.0.0.1 
+PG_PORT=5432
+
+
 ## Licence
 
 LICENSE
