@@ -1,4 +1,4 @@
-FROM python:2
+FROM python:3
 
 ADD tk102-server-milekz /
 ADD POSHandler.py /
