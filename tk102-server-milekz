@@ -281,8 +281,8 @@ class TK102RequestHandler(SocketServer.BaseRequestHandler):
                                 location = "Unknown"
 #                           location = geolocator.reverse("52.509669, 13.376294")
                             print(location.address.encode('utf-8'))
-                            print self.lat,",",self.lon
-                            print parts[1]
+                            print(self.lat,",",self.lon)
+                            print(parts[1])
                             con = None
 #                            con = psycopg2.connect("dbname='gpstracking' user='gpsuser1' password='Js3312gga3123dads' host='127.0.0.1' ")
                             con = psycopg2.connect("dbname=os.environ['PG_DBNAME'] user=os.environ['PG_USER'] password=os.environ['PG_PASS'] host=os.environ['PG_HOST'] port=os.environ['PG_PORT']")
