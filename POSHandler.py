@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 #
 from smtplib import SMTP
-from email.MIMEText import MIMEText
-from email.Header import Header
-from email.Utils import parseaddr, formataddr
+from email.mime.text import MIMEText
+from email.header import Header
+from email.utils import parseaddr, formataddr
 from email.mime.multipart import MIMEMultipart
 from email.encoders import encode_7or8bit
 

@@ -8,7 +8,7 @@
 import logging
 import logging.handlers
 import sys
-import SocketServer
+import socketserver
 import time
 import datetime
 import select
@@ -30,7 +30,7 @@ from POSHandler import *
 
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut
-geolocator = Nominatim()
+geolocator = Nominatim(user_agent="my-application-tk102")
 location = geolocator.reverse("51.333168333 , 22.686301667",timeout=10)
 print(location.address.encode('utf-8'))
 print(location.altitude)
@@ -57,11 +57,11 @@ glogger.addHandler(console)
 
 Pos = namedtuple('Pos', 'imei, lat, lon, spd, bearing, acc, idx')
 
-class TK102RequestHandler(SocketServer.BaseRequestHandler):
+class TK102RequestHandler(socketserver.BaseRequestHandler):
     def __init__(self, request, client_address, server):
         self.logger = glogger #logging.getLogger('TK102Handler')
         self.logger.debug('New request')
-        SocketServer.BaseRequestHandler.__init__(self, request, client_address, server)
+        socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
         return
 
     def debug(self, msg):
@@ -355,7 +355,7 @@ class TK102RequestHandler(SocketServer.BaseRequestHandler):
         self.info( "bytes read="+str(self.bytes_r)+" bytes sent="+str(self.bytes_s)+" points="+str(self.posidx) )
         return SocketServer.BaseRequestHandler.finish(self)
 
-class TK102Server(SocketServer.ForkingMixIn, SocketServer.TCPServer):
+class TK102Server(socketserver.ForkingMixIn, socketserver.TCPServer):
     timeout             = 10
     daemon_threads      = True
     allow_reuse_address = True
