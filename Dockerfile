@@ -7,6 +7,6 @@ ADD POSHandler.py /tk102
 
 WORKDIR /tk102
 
-CMD [ "python", "./tk102-server-milekz" ]
+CMD [ "./tk102-server-milekz" ]
 
 EXPOSE 14600
