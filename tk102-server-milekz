@@ -265,7 +265,7 @@ class TK102RequestHandler(socketserver.BaseRequestHandler):
 
             # If '\n' in data more than once we have more OBlines.
             lc = 0
-
+            print(len(rdata)))
 
             if len(rdata)==17:
 
