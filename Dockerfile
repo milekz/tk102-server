@@ -12,7 +12,7 @@ ADD POSHandler.py /tk102
 
 WORKDIR /tk102
 
-ENTRYPOINT ["/bin/sh", "-c", "python3 tk102-server-milekz"]
+#ENTRYPOINT ["/bin/sh", "-c", "python3 tk102-server-milekz"]
 #CMD [ "python3", "./tk102-server-milekz" ]
 
 
