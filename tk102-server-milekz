@@ -133,6 +133,12 @@ class TK102RequestHandler(socketserver.BaseRequestHandler):
         if (codec == 8):
             lenght = int(data[8:16], 16)
             record = int(data[18:20], 16)
+
+            con = None
+#              con = psycopg2.connect("dbname='gpstracking' user='gpsuser1' password='Js3312gga3123dads' host='127.0.0.1' ")
+            con = psycopg2.connect("dbname=os.environ['PG_DBNAME'] user=os.environ['PG_USER'] password=os.environ['PG_PASS'] host=os.environ['PG_HOST'] port=os.environ['PG_PORT']")
+            cur = con.cursor()
+
             for xx in range(record):
                 
                 timestamp = round(int(data[20:36], 16)/1000)
@@ -142,9 +148,11 @@ class TK102RequestHandler(socketserver.BaseRequestHandler):
                 lat = int(data[46:54], 16)/10000000
                 self.lat = int(data[46:54], 16)/10000000
                 alt = int(data[54:58], 16)
+                self.alt = int(data[54:58], 16)
                 angle = int(data[58:62], 16)
                 self.bearing = int(data[58:62], 16)
                 sats = int(data[62:64], 16) #maybe
+                self.sats = int(data[62:64], 16) #maybe
                 speed = int(data[64:68], 16)
                 self.spd = int(data[64:68], 16)
                 print("LENGHT: " + str(lenght)  +  "\nRecord: " + str(record) + "\nTimestamp: " + str(timestamp) + "\nLat,Lon: " + str(lat) + ", " + str(lon) + "\nAltitude: " + str(alt) + "\nSats: " +  str(sats) + "\nSpeed: " + str(speed) + "\n")
@@ -157,11 +165,18 @@ class TK102RequestHandler(socketserver.BaseRequestHandler):
                 self.acc=0
                 self.pos = Pos(self.imei, self.lat,self.lon,self.spd,self.bearing,self.acc,self.posidx)
 
+ 
+                cur.execute("INSERT INTO \""+(os.environ['PG_SCHEMA'])+"\".\""+str(self.imei)+"\" (altitude, satelites, speed , longitude, latitude, angle, address, tmstamp ) VALUES  (round("+str(self.alt)+") , round("+str(self.sats+"), round("+str(self.spd)+"), round("+str(self.spd)+") , "+str(self.lon)+" , "+str(self.lat)+" ,round("+str(self.bearing)+"), \'"+location.address.encode('utf-8')+"\', (select now() at time zone \'cest\')  )   ")
+                con.commit()
+                
+
+
                 with open(self.infofile, "wb") as f:
                     pickle.dump(self.pos, f)
                 self.on_position()
                 self.posidx += 1
                 
+            con.close()   
             #return "0000" + str(record).zfill(4)
             return int(record)
 #00000000000000f30808
@@ -268,6 +283,21 @@ class TK102RequestHandler(socketserver.BaseRequestHandler):
             if len(rdata)==17:
                 #print("IMEI. Authorizing. "+ format(len(rdata)))
                 self.imei = rdata.decode("utf-8")
+
+                con = None
+#                            con = psycopg2.connect("dbname='gpstracking' user='gpsuser1' password='Js3312gga3123dads' host='127.0.0.1' ")
+                con = psycopg2.connect("dbname=os.environ['PG_DBNAME'] user=os.environ['PG_USER'] password=os.environ['PG_PASS'] host=os.environ['PG_HOST'] port=os.environ['PG_PORT']")
+                cur = con.cursor()
+                cur.execute("CREATE SCHEMA IF NOT EXISTS "+str(os.environ['PG_SCHEMA'])  +" ; " )
+                con.commit()
+
+                cur.execute(" CREATE TABLE IF NOT EXISTS \""  + str(os.environ['PG_SCHEMA']) +"\".\"" +str(self.imei) + "\" ( id SERIAL PRIMARY KEY, tmstamp TIMESTAMP, latitude NUMERIC(8,6), longitude NUMERIC(8,6), altitude SMALLINT, angle SMALLINT,  satellites SMALLINT, speed SMALLINT , address TEXT  );    ")
+                con.commit()
+                
+                con.close()
+                
+
+
 
                 self.logger = glogger
                 self.info("Init: imei "+self.imei)
@@ -523,7 +553,7 @@ if __name__ == '__main__':
     import threading
 
 
-    print(  str(  struct.pack('BBBB',0,0,0,11) )[1:]  )
+    #print(  str(  struct.pack('BBBB',0,0,0,11) )[1:]  )
     #print( '\\x00\x00\x00' +   str( '\\' +  "0x%02x"  % 8  )   )
 
     #startups = { ("35971004071XXXX", "**,imei:IMEI,C,300s") ]
