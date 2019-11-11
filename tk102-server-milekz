@@ -253,8 +253,8 @@ class TK102RequestHandler(socketserver.BaseRequestHandler):
                 self.bytes_r += len(sdata)
 
                 sdata = sdata.rstrip()
-                self.debug("recv("+format(sdata)+")")
-                print("Received : "+str(self.bytes_r) + " Bytes" )
+                #self.debug("recv("+format(sdata)+")")
+                #print("Received : "+str(self.bytes_r) + " Bytes" )
 #                self.debug("recv("+sdata.decode("utf-8")+")")
 
 #'\x00\x0f356307045555066'
