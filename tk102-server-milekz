@@ -3,7 +3,7 @@
 #
 #use Geo::Coder::Google;
 #my $geocoder = Geo::Coder::Google->new(gl => 'pl', language => 'pl', apiver => 3 , oe => 'utf8');
-
+  
 #
 import logging
 import logging.handlers
@@ -19,6 +19,8 @@ import operator
 import shutil
 import re
 import psycopg2
+import binascii
+import struct
 from collections import namedtuple
 try:
     import cPickle as pickle
@@ -113,11 +115,73 @@ class TK102RequestHandler(socketserver.BaseRequestHandler):
             self.poshandler.on_start_move()
 
     def send(self, msg):
-        self.debug('send: '+msg)
-        self.request.send(msg+"\n")
+        #self.debug('send: '+msg)
+        #self.request.send(msg+"\n")
+        self.request.send(msg)
         self.bytes_s += len(msg)+1
 
+    def sendb(self, msg):
+        self.debug('send: '+msg)
+        self.request.sendall(bytes(msg + "\n", "utf-8"))
+        self.bytes_s += len(msg)+1
+
+
+    def decodethis(self,data):
+        print(len(data))
+        offset=-20
+        codec = int(data[16:18], 16)
+        if (codec == 8):
+            lenght = int(data[8:16], 16)
+            record = int(data[18:20], 16)
+            for xx in range(record):
+                
+                timestamp = round(int(data[20:36], 16)/1000)
+                priority = int(data[36:38], 16)
+                lon = int(data[38:46], 16)/10000000
+                self.lon = int(data[38:46], 16)/10000000
+                lat = int(data[46:54], 16)/10000000
+                self.lat = int(data[46:54], 16)/10000000
+                alt = int(data[54:58], 16)
+                angle = int(data[58:62], 16)
+                self.bearing = int(data[58:62], 16)
+                sats = int(data[62:64], 16) #maybe
+                speed = int(data[64:68], 16)
+                self.spd = int(data[64:68], 16)
+                print("LENGHT: " + str(lenght)  +  "\nRecord: " + str(record) + "\nTimestamp: " + str(timestamp) + "\nLat,Lon: " + str(lat) + ", " + str(lon) + "\nAltitude: " + str(alt) + "\nSats: " +  str(sats) + "\nSpeed: " + str(speed) + "\n")
+                location = geolocator.reverse(str(lat) + " , " + str(lon),timeout=10)
+                #print(location.address)
+                print(location)
+                #print(data[20:])
+                data = "00000000000000f30808" + data[80:] 
+
+                self.acc=0
+                self.pos = Pos(self.imei, self.lat,self.lon,self.spd,self.bearing,self.acc,self.posidx)
+
+                with open(self.infofile, "wb") as f:
+                    pickle.dump(self.pos, f)
+                self.on_position()
+                self.posidx += 1
+                
+            #return "0000" + str(record).zfill(4)
+            return int(record)
+#00000000000000f30808
+#0000016e57759ce0000bc79ec61e07807b017c0000130000000000000000
+#0000016e576c7520000bc79ec61e07807b017c0000120000000000000000
+#0000016e57634d60000bc79ec61e07807b017d0000120000000000000000
+#0000016e575a25a0000bc79ec61e07807b017f0000110000000000000000
+#0000016e5750fde0000bc79ec61e07807b017f0000120000000000000000
+#0000016e5747d620000bc79ec61e07807b017e0000120000000000000000
+#0000016e573eae60000bc79ec61e07807b01790000120000000000000000
+#0000016e573586a0000bc79ec61e07807b01780000120000000000000000
+#080000b91e
+
+#00000000000000f308080000016e575a25a0000bc79ec61e07807b017f00001100000000000000000000016e5750fde0000bc79ec61e07807b017f00001200000000000000000000016e5747d620000bc79ec61e07807b017e00001200000000000000000000016e573eae60000bc79ec61e07807b017900001200000000000000000000016e573586a0000bc79ec61e07807b017800001200000000000000000000016e572c5ee0000bc79ec61e07807b017700001300000000000000000000016e57233720000bc79ec61e07807b017600001200000000000000000000016e571a0f60000bc79ec61e07807b01760000120000000000000000080000ecc1
+#00000113fc17610b 00 0f14ffe0209cc580006e00c7050001 0004030101150316010001460000015e00
+
     def handle(self):
+
+       
+
         self.server.socket.setblocking(0)
         #self.server.socket.settimeout(10.0)
         cur_pid         = os.getpid() #threading.current_thread()
@@ -185,15 +249,88 @@ class TK102RequestHandler(socketserver.BaseRequestHandler):
                 self.counter = self.counter - 1
             else:
                 self.bytes_r += len(sdata)
+
                 sdata = sdata.rstrip()
-                self.debug("recv("+sdata+")")
+                self.debug("recv("+format(sdata)+")")
+                print("Received : "+str(self.bytes_r) + " Bytes" )
+#                self.debug("recv("+sdata.decode("utf-8")+")")
+
+#'\x00\x0f356307045555066'
+#            sdata=sdata.decode("utf-8")
+            rdata=sdata
+            sdata=format(sdata)
+            
 
             # If '\n' in data more than once we have more OBlines.
             lc = 0
-            for data in sdata.split('\n'):
+
+
+            if len(rdata)==17:
+                #print("IMEI. Authorizing. "+ format(len(rdata)))
+                self.imei = rdata.decode("utf-8")
+
+                self.logger = glogger
+                self.info("Init: imei "+self.imei)
+                # create imei file
+                try:
+                    fp_imei = open(self.imeifile, 'w')
+                    fp_imei.write(self.imei)
+                    fp_imei.close()
+                except:
+                    self.error("Could not create 'imei' file")
+                    self.loop = False
+
+                self.sendb('\x01')
+            
+            elif len(rdata)>17:
+                self.info("line[X]: ("+str(binascii.hexlify(rdata))+")")
+                rec= self.decodethis(str(binascii.hexlify(rdata))[2:-1])
+
+                #self.send(struct.pack('i',8))
+                #print("RECCC: "+rec)
+                #self.loop = False
+                #print(  '\\' +"0x%02x"  % 8  )
+                #print( '\\x00\\x00\\x00' +  '\\' +"0x%02x"  % rec    )
+                #print(  str(  struct.pack('BBBB',0,0,0,rec) )[1:]   ) 
+
+                self.send(   struct.pack('BBBB',0,0,0,rec)   )
+                #self.sendb( '\x00\x00\x00\x08' )
+
+
+
+
+            #print( str(self.bytes_r) +" < R  W >"+ str(self.bytes_s) )
+            with open(self.bytesfile, "wb") as f:
+                pickle.dump((str(self.bytes_r)  , str(self.bytes_s) ) , f)
+
+            abc=''
+            for data in abc:
+
+#            for data in sdata.split('\n'):
                 data = data.rstrip()
-                self.info("line["+str(lc)+"]: ("+data+")")
+                #self.info("line["+str(lc)+"]: ("+data+")")
+                self.info("line["+str(lc)+"]: ("+str(binascii.hexlify(rdata))+")")
+                #print(binascii.hexlify(rdata))                
+
                 lc += 1
+                #pattern = re.compile("^(\d)+$")
+                #pattern.match(data)
+                if len(rdata)==17:
+                    #print("IMEI. Authorizing. "+ format(len(rdata)))
+                    self.imei = rdata.decode("utf-8")
+
+                    self.logger = glogger
+                    self.info("Init: imei "+self.imei)
+                    # create imei file
+                    try:
+                        fp_imei = open(self.imeifile, 'w')
+                        fp_imei.write(self.imei)
+                        fp_imei.close()
+                    except:
+                        self.error("Could not create 'imei' file")
+                        self.loop = False
+
+                    self.sendb('\x01')
 
                 # "##,imei:35971004071XXXX,A;
                 if data[0:7] == "##,imei": # FIRST CONTACT
@@ -297,8 +434,8 @@ class TK102RequestHandler(socketserver.BaseRequestHandler):
                             self.on_position()
                             self.posidx += 1
                             #
-                else:
-                    self.info(data)
+                #else:
+                #    self.info(rdata)
                 time.sleep(.1)
                 #
                 if self.counter <= 0:
@@ -338,7 +475,7 @@ class TK102RequestHandler(socketserver.BaseRequestHandler):
                         self.error("Could not handle 'cmd' file.")
                 # Write receive/send stats
                 with open(self.bytesfile, "w") as f:
-                    pickle.dump((self.bytes_r, self.bytes_s), f)
+                    pickle.dump((str(self.bytes_r)  , str(self.bytes_s) ) , f)
 
         self.info('handle ready')
         return
@@ -353,7 +490,7 @@ class TK102RequestHandler(socketserver.BaseRequestHandler):
         except:
             self.error("Could not create 'exit' file")
         self.info( "bytes read="+str(self.bytes_r)+" bytes sent="+str(self.bytes_s)+" points="+str(self.posidx) )
-        return SocketServer.BaseRequestHandler.finish(self)
+        return socketserver.BaseRequestHandler.finish(self)
 
 class TK102Server(socketserver.ForkingMixIn, socketserver.TCPServer):
     timeout             = 10
@@ -384,6 +521,10 @@ def on_exit(imei, msg):
 if __name__ == '__main__':
     import socket
     import threading
+
+
+    print(  str(  struct.pack('BBBB',0,0,0,11) )[1:]  )
+    #print( '\\x00\x00\x00' +   str( '\\' +  "0x%02x"  % 8  )   )
 
     #startups = { ("35971004071XXXX", "**,imei:IMEI,C,300s") ]
     startups = [ ("\d+" , "**,imei:IMEI,C,10s") ] #if imei matches, send string, replaces IMEI with real imei.
