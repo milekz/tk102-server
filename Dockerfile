@@ -15,6 +15,7 @@ WORKDIR /tk102
 #ENTRYPOINT ["/bin/sh", "-c", "python3 tk102-server-milekz"]
 #CMD [ "python3", "./tk102-server-milekz" ]
 
+CMD [ "sleep 10h" ] 
 
 EXPOSE 14600
 
