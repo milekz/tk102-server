@@ -29,13 +29,12 @@ except:
 from POSHandler import *
 
 
-
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut
 geolocator = Nominatim(user_agent="my-application-tk102")
-location = geolocator.reverse("51.333168333 , 22.686301667",timeout=10)
-print(location.address.encode('utf-8'))
-print(location.altitude)
+#location = geolocator.reverse("51.333168333 , 22.686301667",timeout=10)
+#print(location.address.encode('utf-8'))
+#print(location.altitude)
 
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)-8s %(message)s')
@@ -135,8 +134,7 @@ class TK102RequestHandler(socketserver.BaseRequestHandler):
             record = int(data[18:20], 16)
 
             con = None
-#              con = psycopg2.connect("dbname='gpstracking' user='gpsuser1' password='Js3312gga3123dads' host='127.0.0.1' ")
-            con = psycopg2.connect("dbname=os.environ['PG_DBNAME'] user=os.environ['PG_USER'] password=os.environ['PG_PASS'] host=os.environ['PG_HOST'] port=os.environ['PG_PORT']")
+            con = psycopg2.connect("dbname="+os.environ['PG_DBNAME']+" user="+ os.environ['PG_USER']+" password="+os.environ['PG_PASS']+" host="+ os.environ['PG_HOST']+" port="+os.environ['PG_PORT'])
             cur = con.cursor()
 
             for xx in range(record):
@@ -165,33 +163,21 @@ class TK102RequestHandler(socketserver.BaseRequestHandler):
                 self.acc=0
                 self.pos = Pos(self.imei, self.lat,self.lon,self.spd,self.bearing,self.acc,self.posidx)
 
- 
-                cur.execute("INSERT INTO \""+(os.environ['PG_SCHEMA'])+"\".\""+str(self.imei)+"\" (altitude, satelites, speed , longitude, latitude, angle, address, tmstamp ) VALUES  (round("+str(self.alt)+") , round("+str(self.sats+"), round("+str(self.spd)+"), round("+str(self.spd)+") , "+str(self.lon)+" , "+str(self.lat)+" ,round("+str(self.bearing)+"), \'"+location.address.encode('utf-8')+"\', (select now() at time zone \'cest\')  )   ")
+                #sql = "INSERT INTO \'"+ str(self.imei) +"\' (altitude, satelites, speed , longitude, latitude, angle, address, tmstamp ) VALUES  (round(" +str(self.alt) +   ") , round("+str(self.sats)+"), round("+str(self.spd)+"), "+str(self.lon)+" , "+str(self.lat)+" ,round("+str(self.bearing)+"), \'"+str(location)+"\', "+  str(timestamp) +"  )  ; "
+                #print(sql)
+                cur.execute("INSERT INTO \"" + self.imeix  +  "\" (altitude, satellites, speed , longitude, latitude, angle, address, tmstamp ) VALUES  (round(" +str(self.alt) +   ") , round("+str(self.sats)+"), round("+str(self.spd)+"), "+str(self.lon)+" , "+str(self.lat)+" ,round("+str(self.bearing)+"), \'"+str(location)+"\', "+  str(timestamp) +"  )  ; "  )
+
                 con.commit()
                 
-
-
                 with open(self.infofile, "wb") as f:
                     pickle.dump(self.pos, f)
                 self.on_position()
                 self.posidx += 1
                 
-            con.close()   
+            con.close()  
+            cur.close() 
             #return "0000" + str(record).zfill(4)
             return int(record)
-#00000000000000f30808
-#0000016e57759ce0000bc79ec61e07807b017c0000130000000000000000
-#0000016e576c7520000bc79ec61e07807b017c0000120000000000000000
-#0000016e57634d60000bc79ec61e07807b017d0000120000000000000000
-#0000016e575a25a0000bc79ec61e07807b017f0000110000000000000000
-#0000016e5750fde0000bc79ec61e07807b017f0000120000000000000000
-#0000016e5747d620000bc79ec61e07807b017e0000120000000000000000
-#0000016e573eae60000bc79ec61e07807b01790000120000000000000000
-#0000016e573586a0000bc79ec61e07807b01780000120000000000000000
-#080000b91e
-
-#00000000000000f308080000016e575a25a0000bc79ec61e07807b017f00001100000000000000000000016e5750fde0000bc79ec61e07807b017f00001200000000000000000000016e5747d620000bc79ec61e07807b017e00001200000000000000000000016e573eae60000bc79ec61e07807b017900001200000000000000000000016e573586a0000bc79ec61e07807b017800001200000000000000000000016e572c5ee0000bc79ec61e07807b017700001300000000000000000000016e57233720000bc79ec61e07807b017600001200000000000000000000016e571a0f60000bc79ec61e07807b01760000120000000000000000080000ecc1
-#00000113fc17610b 00 0f14ffe0209cc580006e00c7050001 0004030101150316010001460000015e00
 
     def handle(self):
 
@@ -206,6 +192,7 @@ class TK102RequestHandler(socketserver.BaseRequestHandler):
         self.counter    = self.counts
         self.last       = time.time()
         self.pid        = str(cur_pid)
+        self.imeix      = ""
         self.imei       = "PID: "+self.pid     #until we get the real one
         self.url        = ""
         self.ctldir     = "tk102pid_"+self.pid
@@ -281,21 +268,23 @@ class TK102RequestHandler(socketserver.BaseRequestHandler):
 
 
             if len(rdata)==17:
-                #print("IMEI. Authorizing. "+ format(len(rdata)))
+
+                self.imeix = str(rdata)[10:-1] 
                 self.imei = rdata.decode("utf-8")
 
                 con = None
-#                            con = psycopg2.connect("dbname='gpstracking' user='gpsuser1' password='Js3312gga3123dads' host='127.0.0.1' ")
-                con = psycopg2.connect("dbname=os.environ['PG_DBNAME'] user=os.environ['PG_USER'] password=os.environ['PG_PASS'] host=os.environ['PG_HOST'] port=os.environ['PG_PORT']")
-                cur = con.cursor()
-                cur.execute("CREATE SCHEMA IF NOT EXISTS "+str(os.environ['PG_SCHEMA'])  +" ; " )
-                con.commit()
+                con = psycopg2.connect("dbname="+os.environ['PG_DBNAME']+" user="+ os.environ['PG_USER']+" password="+os.environ['PG_PASS']+" host="+ os.environ['PG_HOST']+" port="+os.environ['PG_PORT'])
 
-                cur.execute(" CREATE TABLE IF NOT EXISTS \""  + str(os.environ['PG_SCHEMA']) +"\".\"" +str(self.imei) + "\" ( id SERIAL PRIMARY KEY, tmstamp TIMESTAMP, latitude NUMERIC(8,6), longitude NUMERIC(8,6), altitude SMALLINT, angle SMALLINT,  satellites SMALLINT, speed SMALLINT , address TEXT  );    ")
+                #print ("psycopg2 connection:", con)
+
+                cur = con.cursor()
+
+                cur.execute(" CREATE TABLE IF NOT EXISTS \""+ str(rdata)[10:-1] +"\" ( id SERIAL PRIMARY KEY, tmstamp bigint, latitude NUMERIC(8,6), longitude NUMERIC(8,6), altitude SMALLINT, angle SMALLINT,  satellites SMALLINT, speed SMALLINT , address TEXT  );  " )
+
                 con.commit()
                 
                 con.close()
-                
+                cur.close()
 
 
 
@@ -316,18 +305,8 @@ class TK102RequestHandler(socketserver.BaseRequestHandler):
                 self.info("line[X]: ("+str(binascii.hexlify(rdata))+")")
                 rec= self.decodethis(str(binascii.hexlify(rdata))[2:-1])
 
-                #self.send(struct.pack('i',8))
-                #print("RECCC: "+rec)
-                #self.loop = False
-                #print(  '\\' +"0x%02x"  % 8  )
-                #print( '\\x00\\x00\\x00' +  '\\' +"0x%02x"  % rec    )
-                #print(  str(  struct.pack('BBBB',0,0,0,rec) )[1:]   ) 
-
                 self.send(   struct.pack('BBBB',0,0,0,rec)   )
                 #self.sendb( '\x00\x00\x00\x08' )
-
-
-
 
             #print( str(self.bytes_r) +" < R  W >"+ str(self.bytes_s) )
             with open(self.bytesfile, "wb") as f:
@@ -452,7 +431,8 @@ class TK102RequestHandler(socketserver.BaseRequestHandler):
                             print(parts[1])
                             con = None
 #                            con = psycopg2.connect("dbname='gpstracking' user='gpsuser1' password='Js3312gga3123dads' host='127.0.0.1' ")
-                            con = psycopg2.connect("dbname=os.environ['PG_DBNAME'] user=os.environ['PG_USER'] password=os.environ['PG_PASS'] host=os.environ['PG_HOST'] port=os.environ['PG_PORT']")
+                            con = psycopg2.connect("dbname="+os.environ['PG_DBNAME']+" user="+ os.environ['PG_USER']+" password="+os.environ['PG_PASS']+" host="+ os.environ['PG_HOST']+" port="+os.environ['PG_PORT'])
+                            #con = psycopg2.connect("dbname=os.environ['PG_DBNAME'] user=os.environ['PG_USER'] password=os.environ['PG_PASS'] host=os.environ['PG_HOST'] port=os.environ['PG_PORT']")
                             cur = con.cursor()
                             cur.execute("INSERT INTO \"firma1\".\""+str(self.imei)+"\" (priority, altitude, satelites, speed , longitude, latitude, angle, address, timestamp ) VALUES  (0, 0, 0, round("+str(self.spd)+") , "+str(self.lon)+" , "+str(self.lat)+" ,round("+str(self.bearing)+"), \'"+str(parts[1])+";"+location.address.encode('utf-8')+"\', (select now() at time zone \'cest\')  )   ")
                             con.commit()
